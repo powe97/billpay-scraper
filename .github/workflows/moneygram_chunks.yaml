@@ -1,4 +1,4 @@
-name: Moneygram scrape range
+name: Moneygram scrape chunks
 on:
   workflow_dispatch:
     inputs:
@@ -6,6 +6,7 @@ on:
         required: true
         type: number
       payee_max:
+        required: true
         type: number
   workflow_call:
     inputs:
@@ -13,6 +14,7 @@ on:
         required: true
         type: number
       payee_max:
+        required: true
         type: number
 
 jobs:
@@ -26,36 +28,35 @@ jobs:
         MIN: ${{ inputs.payee_min }}
         MAX: ${{ inputs.payee_max }}
       run: |
-        MAX="$(test "$MAX" -ne "0" && echo "$MAX" || echo "$((MIN + 249))")"
-        MATRIX_PARAMS="$(seq -s "," "$MIN" "$MAX")"
-        MATRIX_PARAMS="\"payee\": $(sed -e 's/,/}, {"payee": /g' <<< "$MATRIX_PARAMS")"
+        MATRIX_PARAMS="$(seq -s "," "$MIN" 250 "$MAX")"
+        MATRIX_PARAMS="\"payee_min\": $(sed -e 's/,/}, {"payee_min": /g' <<< "$MATRIX_PARAMS")"
         echo "matrix-params={\"include\": [{"$MATRIX_PARAMS"}]}" | tee $GITHUB_OUTPUT
     outputs:
       matrix-params: ${{ steps.matrix-params.outputs.matrix-params }}
 
-  scrape-range:
-    name: Scrape range
-    uses: ./.github/workflows/moneygram_query.yaml
+  scrape-chunks:
+    name: Scrape chunks
     needs: setup
+    uses: ./.github/workflows/moneygram_range.yaml
     strategy:
-      max-parallel: 25
+      max-parallel: 1
       matrix: ${{ fromJson(needs.setup.outputs.matrix-params) }}
       fail-fast: true
     with:
-      payee: ${{ matrix.payee }}
+      payee_min: ${{ matrix.payee_min }}
 
   combine-data:
     name: Combine payee JSONs
     runs-on: ubuntu-latest
-    needs: scrape-range
+    needs: scrape-chunks
 
     steps:
     - name: Download partial JSONs
       uses: actions/download-artifact@v4
       with:
-        pattern: mg-payee-*
+        pattern: mg-payees-*
         merge-multiple: true
-        path: new-mg-payees
+        path: new-mg-chunks
 
     - name: Combine JSONs
       env:
@@ -63,7 +64,7 @@ jobs:
         MAX: ${{ inputs.payee_max }}
       run: |
         ls -lsa new-mg-payees
-        cat new-mg-payees/* | jq -s "add | sort_by(.receiveCode)" | tee mg-payees-$MIN-$MAX.json
+        cat new-mg-chunks/* | jq -s "add | sort_by(.receiveCode)" | tee mg-payees-$MIN-$MAX.json
 
     - name: Upload full JSON
       uses: actions/upload-artifact@v4
