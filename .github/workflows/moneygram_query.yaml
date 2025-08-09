@@ -1,0 +1,28 @@
+name: Scrape one payee search
+on:
+  workflow_dispatch:
+    inputs:
+      payee:
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      payee:
+        required: true
+        type: string
+
+jobs:
+  moneygram-query:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run query
+        env:
+          PAYEE: ${{ inputs.payee }}
+        run: |
+          curl -s "https://www.moneygram.com/api/pay-bills/search?billerName=$PAYEE" -H "locale-header: en-us" | jq | tee out.json
+
+      - name: Upload data to artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: payee-${{ inputs.payee }}
+          path: out.json
