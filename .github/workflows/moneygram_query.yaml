@@ -1,5 +1,5 @@
 name: Moneygram scrape query
-run-name: Moneygram scrape query ${{ inputs.payee }}
+run-name: Moneygram scrape query
 on:
   workflow_dispatch:
     inputs:
@@ -14,17 +14,18 @@ on:
 
 jobs:
   moneygram-query:
+    name: Moneygram scrape query
     runs-on: ubuntu-latest
     steps:
       - name: Run query
         env:
           PAYEE: ${{ inputs.payee }}
         run: |
-          curl -s "https://www.moneygram.com/api/pay-bills/search?billerName=$PAYEE" -H "locale-header: en-us" | jq ".billerInfoVOList" | tee mg-payee-$PAYEE.json
+          curl -s "https://www.moneygram.com/api/pay-bills/search?billerName=$PAYEE" -H "locale-header: en-us" | jq ".billerInfoVOList" | tee "mg-payee-query-$PAYEE.json"
 
       - name: Upload data to artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mg-payee-${{ inputs.payee }}
-          path: mg-payee-${{ inputs.payee }}.json
+          name: mg-payee-query-${{ inputs.payee }}
+          path: mg-payee-query-${{ inputs.payee }}.json
           retention-days: 1
