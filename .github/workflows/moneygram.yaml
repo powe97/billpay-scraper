@@ -1,0 +1,44 @@
+name: Moneygram scrape full search
+run-name: Moneygram scrape full search
+on:
+  workflow_dispatch:
+# workflow_call: would exceed depth limit
+
+jobs:
+  scrape:
+    name: Scrape
+    uses: ./.github/workflows/moneygram_chunks.yaml
+    strategy:
+      max-parallel: 1
+      matrix: ${{ fromJson(needs.setup.outputs.matrix-params) }}
+      fail-fast: true
+    with:
+      payee_min: 100
+      payee_max: 999
+
+  combine-data:
+    name: Combine payee JSONs
+    runs-on: ubuntu-latest
+    needs: scrape
+
+    steps:
+    - name: Download partial JSONs
+      uses: actions/download-artifact@v4
+      with:
+        pattern: mg-payee-chunk-*
+        merge-multiple: true
+        path: new-mg-chunks
+
+    - name: Combine JSONs
+      env:
+        MIN: ${{ inputs.payee_min }}
+        MAX: ${{ inputs.payee_max }}
+      run: |
+        ls -lsa new-mg-chunks
+        cat new-mg-chunks/* | jq -s "add | unique | sort_by(.receiveCode | tonumber)" | tee mg-payees.json
+
+    - name: Upload full JSON
+      uses: actions/upload-artifact@v4
+      with:
+        name: mg-payees
+        path: mg-payees.json

@@ -1,4 +1,5 @@
-name: Moneygram scrape one payee search
+name: Moneygram scrape query
+run-name: Moneygram scrape query ${{ inputs.payee }}
 on:
   workflow_dispatch:
     inputs:
@@ -26,3 +27,4 @@ jobs:
         with:
           name: mg-payee-${{ inputs.payee }}
           path: mg-payee-${{ inputs.payee }}.json
+          retention-days: 1

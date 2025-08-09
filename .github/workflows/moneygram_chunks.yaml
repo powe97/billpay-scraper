@@ -1,4 +1,5 @@
 name: Moneygram scrape chunks
+run-name: Moneygram scrape chunks
 on:
   workflow_dispatch:
     inputs:
@@ -29,8 +30,8 @@ jobs:
         MAX: ${{ inputs.payee_max }}
       run: |
         MATRIX_PARAMS="$(seq -s "," "$MIN" 250 "$MAX")"
-        MATRIX_PARAMS="\"payee_min\": $(sed -e 's/,/}, {"payee_min": /g' <<< "$MATRIX_PARAMS")"
-        echo "matrix-params={\"include\": [{"$MATRIX_PARAMS"}]}" | tee $GITHUB_OUTPUT
+        MATRIX_PARAMS="{\"payee_min\": $(sed -e 's/,\([^,]*\)/, "payee_max": \1}, {"payee_min": \1/g' <<< "$MATRIX_PARAMS"), \"payee_max\": "$MAX"}"
+        echo "matrix-params={\"include\": ["$MATRIX_PARAMS"]}" | tee $GITHUB_OUTPUT
     outputs:
       matrix-params: ${{ steps.matrix-params.outputs.matrix-params }}
 
@@ -44,9 +45,10 @@ jobs:
       fail-fast: true
     with:
       payee_min: ${{ matrix.payee_min }}
+      payee_max: ${{ matrix.payee_max }}
 
   combine-data:
-    name: Combine payee JSONs
+    name: Combine payee range JSONs
     runs-on: ubuntu-latest
     needs: scrape-chunks
 
@@ -54,20 +56,21 @@ jobs:
     - name: Download partial JSONs
       uses: actions/download-artifact@v4
       with:
-        pattern: mg-payees-*
+        pattern: mg-payee-range-*
         merge-multiple: true
-        path: new-mg-chunks
+        path: new-mg-ranges
 
     - name: Combine JSONs
       env:
         MIN: ${{ inputs.payee_min }}
         MAX: ${{ inputs.payee_max }}
       run: |
-        ls -lsa new-mg-payees
-        cat new-mg-chunks/* | jq -s "add | sort_by(.receiveCode)" | tee mg-payees-$MIN-$MAX.json
+        ls -lsa new-mg-ranges
+        cat new-mg-ranges/* | jq -s "add | unique | sort_by(.receiveCode | tonumber)" | tee mg-payee-chunk-$MIN-$MAX.json
 
     - name: Upload full JSON
       uses: actions/upload-artifact@v4
       with:
-        name: mg-payees-${{ inputs.payee_min }}-${{ inputs.payee_max }}
-        path: mg-payees-${{ inputs.payee_min }}-${{ inputs.payee_max }}.json
+        name: mg-payee-chunk-${{ inputs.payee_min }}-${{ inputs.payee_max }}
+        path: mg-payee-chunk-${{ inputs.payee_min }}-${{ inputs.payee_max }}.json
+        retention-days: 1

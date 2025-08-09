@@ -1,4 +1,5 @@
 name: Moneygram scrape range
+run-name: Moneygram scrape range
 on:
   workflow_dispatch:
     inputs:
@@ -6,6 +7,7 @@ on:
         required: true
         type: number
       payee_max:
+        required: true
         type: number
   workflow_call:
     inputs:
@@ -13,6 +15,7 @@ on:
         required: true
         type: number
       payee_max:
+        required: true
         type: number
 
 jobs:
@@ -26,10 +29,10 @@ jobs:
         MIN: ${{ inputs.payee_min }}
         MAX: ${{ inputs.payee_max }}
       run: |
-        MAX="$(test "$MAX" -ne "0" && echo "$MAX" || echo "$((MIN + 249))")"
+        MAX="$((MAX - 1))"
         MATRIX_PARAMS="$(seq -s "," "$MIN" "$MAX")"
-        MATRIX_PARAMS="\"payee\": $(sed -e 's/,/}, {"payee": /g' <<< "$MATRIX_PARAMS")"
-        echo "matrix-params={\"include\": [{"$MATRIX_PARAMS"}]}" | tee $GITHUB_OUTPUT
+        MATRIX_PARAMS="{\"payee\": $(sed -e 's/,/}, {"payee": /g' <<< "$MATRIX_PARAMS")}"
+        echo "matrix-params={\"include\": ["$MATRIX_PARAMS"]}" | tee $GITHUB_OUTPUT
     outputs:
       matrix-params: ${{ steps.matrix-params.outputs.matrix-params }}
 
@@ -63,10 +66,11 @@ jobs:
         MAX: ${{ inputs.payee_max }}
       run: |
         ls -lsa new-mg-payees
-        cat new-mg-payees/* | jq -s "add | sort_by(.receiveCode)" | tee mg-payees-$MIN-$MAX.json
+        cat new-mg-payees/* | jq -s "add | unique | sort_by(.receiveCode | tonumber)" | tee mg-payee-range-$MIN-$MAX.json
 
     - name: Upload full JSON
       uses: actions/upload-artifact@v4
       with:
-        name: mg-payees-${{ inputs.payee_min }}-${{ inputs.payee_max }}
-        path: mg-payees-${{ inputs.payee_min }}-${{ inputs.payee_max }}.json
+        name: mg-payee-range-${{ inputs.payee_min }}-${{ inputs.payee_max }}
+        path: mg-payee-range-${{ inputs.payee_min }}-${{ inputs.payee_max }}.json
+        retention-days: 1
