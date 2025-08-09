@@ -10,7 +10,6 @@ jobs:
     uses: ./.github/workflows/moneygram_chunks.yaml
     strategy:
       max-parallel: 1
-      matrix: ${{ fromJson(needs.setup.outputs.matrix-params) }}
       fail-fast: true
     with:
       payee_min: 100
