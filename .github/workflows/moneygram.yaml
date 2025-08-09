@@ -42,3 +42,9 @@ jobs:
       with:
         name: mg-payees
         path: mg-payees.json
+
+    - name: Delete all other MG artifacts
+      uses: joernott/rm-artifacts@v1
+      with:
+        name: mg-payee-*
+        useGlob: true
