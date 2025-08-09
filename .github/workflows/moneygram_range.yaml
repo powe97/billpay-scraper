@@ -1,0 +1,45 @@
+name: Moneygram scrape range
+on:
+  workflow_dispatch:
+    inputs:
+      payee_min:
+        required: true
+        type: number
+      payee_max:
+        required: true
+        type: number
+  workflow_call:
+    inputs:
+      payee_min:
+        required: true
+        type: number
+      payee_max:
+        required: true
+        type: number
+
+jobs:
+  setup:
+    name: Set up matrix params
+    runs-on: ubuntu-latest
+    steps:
+    - name: Create matrix parameters
+      id: matrix-params
+      env:
+        MIN: ${{ inputs.payee_min }}
+        MAX: ${{ inputs.payee_max }}
+      run: |
+        MATRIX_PARAMS="$(seq -s "," "$MIN" "$MAX")"
+        MATRIX_PARAMS="\"payee\": $(sed -e 's/,/}, {"payee": /g' <<< "$MATRIX_PARAMS")"
+        echo "matrix-params={\"include\": [{"$MATRIX_PARAMS"}]}" | tee $GITHUB_OUTPUT
+    outputs:
+      matrix-params: ${{ steps.matrix-params.outputs.matrix-params }}
+  scrape-page:
+    name: Moneygram scrape range
+    uses: ./.github/workflows/moneygram_query.yaml
+    needs: setup
+    strategy:
+      max-parallel: 10
+      matrix: ${{ fromJson(needs.setup.outputs.matrix-params) }}
+      fail-fast: true
+    with:
+      payee: ${{ matrix.payee }}
